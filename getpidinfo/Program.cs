@@ -279,28 +279,40 @@ namespace getpidinfo
 
             var binaryStream = new MemoryStream();
             var o = new StreamWriter(binaryStream);
+            
+            int pid;
+            int cpu;
+            long memory;
+            float network;
 
-            bool isFirst = true;
             o.WriteLine("{");
-            foreach (var part in parts)
+            for(int i=0; i<parts.Length; i++)
             {
-                if (!isFirst) o.Write(",");
-
+                var part = parts[i];
                 var pidPort = part.Split('=');
-                int pid;
                 if (!int.TryParse(pidPort[0], out pid)) return false;
-                // var port = short.Parse(pidPort[1]);
-
-                var cpuMemory = processInfoManager.GetCpuMemoryUsageForPid(pid);
-                var network = portStatisticsManager.GetBytesSentLastSecondForPid(pid);
-                o.WriteLine("\"{0}\":{{ \"pid\":{0}, \"cpu\":{1}, \"memory\":{2}, \"network\":{3} }}", 
+                if (pid == 0)
+                {
+                    cpu = 0;
+                    memory = 0;
+                    network = 0;
+                }
+                else
+                {
+                    var cpuMemory = processInfoManager.GetCpuMemoryUsageForPid(pid);
+                    cpu = (int)Math.Round(cpuMemory.cpuUsage * 100.0);
+                    memory = cpuMemory.memoryUsageBytes;
+                    network = portStatisticsManager.GetBytesSentLastSecondForPid(pid);
+                }
+                o.Write("\t\"{0}\":{{ \"pid\":{0}, \"cpu\":{1}, \"memory\":{2}, \"network\":{3} }}", 
                     pid,
-                    (int)Math.Round(cpuMemory.cpuUsage*100.0),
-                    cpuMemory.memeoryUsageBytes,
-                    (int)Math.Round(network/1024.0)
+                    cpu,
+                    memory,
+                    network
                 );
 
-                isFirst = false;
+                if (i < parts.Length - 1) o.Write(",");
+                o.WriteLine();
             }
             o.Write("}");
 

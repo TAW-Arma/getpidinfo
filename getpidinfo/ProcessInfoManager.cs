@@ -40,7 +40,7 @@ namespace getpidinfo
         public struct CpuMemoryUsageData
         {
             public double cpuUsage; // from 0 to 1, as 0 to 100% 
-            public long memeoryUsageBytes;
+            public long memoryUsageBytes;
         }
 
         ConcurrentDictionary<int, DateTime> pidRequestToLastTime = new ConcurrentDictionary<int, DateTime>();
@@ -52,9 +52,9 @@ namespace getpidinfo
             if(!pidToProcessData.TryGetValue(pid, out pd))
             {
                 addprocessToWatch.Enqueue(pid);
-                return new CpuMemoryUsageData() { cpuUsage = 0, memeoryUsageBytes = 0 };
+                return new CpuMemoryUsageData() { cpuUsage = 0, memoryUsageBytes = 0 };
             }
-            return new CpuMemoryUsageData() { cpuUsage = pd.cpuUsage, memeoryUsageBytes = pd.memoryUsageBytes };
+            return new CpuMemoryUsageData() { cpuUsage = pd.cpuUsage, memoryUsageBytes = pd.memoryUsageBytes };
         }
 
         Dictionary<int, ProcessData> pidToProcessData = new Dictionary<int, ProcessData>();
