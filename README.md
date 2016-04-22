@@ -32,4 +32,4 @@ Response
 If pid is not running or is not accessible it will return 0 for all stats.
 CPU usage is in percents.
 Memory usage is in bytes.
-Network ussage is bytes sent / secondsToKeepNetworkSamples.
+Network usage is bytes sent per second and is averaged over secondsToKeepNetworkSamples second.
