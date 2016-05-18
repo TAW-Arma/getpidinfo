@@ -1,6 +1,6 @@
 # getpidinfo
 
-Windows REST JSON service that returns CPU, memory and network usage of requested process IDs.
+Windows JSON service that returns CPU, memory and network usage of requested process IDs.
 
 It's being internally used by our control panel backend to gather server status information.
 Must be ran as administrator.
