@@ -9,7 +9,7 @@ Once it's running you can request info of any number of process IDs.
 
 Uses [sharppcap](https://github.com/chmorgan/sharppcap)
 
-Requires installed [windows pcap driver](https://www.winpcap.org/install/)
+Requires installed [windows npcap driver](https://nmap.org/npcap/)
 
 # Example
 
