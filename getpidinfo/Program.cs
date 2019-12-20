@@ -175,8 +175,14 @@ namespace getpidinfo
 
         void Stop()
         {
+            try
+            {
             if (httpListener != null) httpListener.Stop();
 
+            } catch (ObjectDisposedException)
+            {
+                // object already disposed
+            }
             if (serverThread != null) serverThread.Abort();
 
             if (processInfoThread != null) processInfoThread.Abort();
