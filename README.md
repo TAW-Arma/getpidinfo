@@ -11,6 +11,8 @@ Uses [sharppcap](https://github.com/chmorgan/sharppcap)
 
 Requires [windows npcap driver](https://nmap.org/npcap/) installed (in WinPcap API-compatible Mode).
 
+Listens to port 2020
+
 # Example
 
 Request
