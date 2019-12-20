@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Collections.Concurrent;
 using System.Linq;
+using System.IO;
 using System.Text;
 using System.Threading.Tasks;
 using System.Diagnostics;
@@ -87,24 +88,32 @@ namespace getpidinfo
             }
             public void Tick(double elapsedMiliseconds, int maxHistoryLen)
             {
-                // do nothing if process has exited
-                if (process.HasExited != true)
+                try
                 {
-                    var timeUsedMiliseconds = (process.TotalProcessorTime - lastTotalProcessorTime).TotalMilliseconds; // total miliseconds of using any processor
-                    var cpuUsageLast = timeUsedMiliseconds / (elapsedMiliseconds * countLogicalProcessors); // normalize it to per time unit per one logical processor
+                    // do nothing if process has exited
+                    if (process != null && process.Id != 0)
+                    {
+                        var timeUsedMiliseconds = (process.TotalProcessorTime - lastTotalProcessorTime).TotalMilliseconds; // total miliseconds of using any processor
+                        var cpuUsageLast = timeUsedMiliseconds / (elapsedMiliseconds * countLogicalProcessors); // normalize it to per time unit per one logical processor
 
-                    cpuUsageHistory.Enqueue(cpuUsageLast);
-                    memoryUsageBytesHistory.Enqueue(process.WorkingSet64);
+                        cpuUsageHistory.Enqueue(cpuUsageLast);
+                        memoryUsageBytesHistory.Enqueue(process.WorkingSet64);
 
-                    while (cpuUsageHistory.Count > maxHistoryLen) cpuUsageHistory.Dequeue();
-                    while (memoryUsageBytesHistory.Count > maxHistoryLen) memoryUsageBytesHistory.Dequeue();
+                        while (cpuUsageHistory.Count > maxHistoryLen) cpuUsageHistory.Dequeue();
+                        while (memoryUsageBytesHistory.Count > maxHistoryLen) memoryUsageBytesHistory.Dequeue();
 
-                    cpuUsage = cpuUsageHistory.Average();
-                    memoryUsageBytes = (long)Math.Round(memoryUsageBytesHistory.Average());
+                        cpuUsage = cpuUsageHistory.Average();
+                        memoryUsageBytes = (long)Math.Round(memoryUsageBytesHistory.Average());
 
-                    lastTotalProcessorTime = process.TotalProcessorTime;
+                        lastTotalProcessorTime = process.TotalProcessorTime;
+                    }
+                } catch (System.ComponentModel.Win32Exception)
+                {
+                    System.Console.Error.WriteLine("Error: Could not read " + process.Id);
+                    cpuUsage = 0;
+                    memoryUsageBytes = 0;
+                    lastTotalProcessorTime = new TimeSpan(0);
                 }
-
             }
         }
 
