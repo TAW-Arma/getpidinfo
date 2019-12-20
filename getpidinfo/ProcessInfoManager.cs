@@ -87,20 +87,24 @@ namespace getpidinfo
             }
             public void Tick(double elapsedMiliseconds, int maxHistoryLen)
             {
+                // do nothing if process has exited
+                if (process.HasExited != true)
+                {
+                    var timeUsedMiliseconds = (process.TotalProcessorTime - lastTotalProcessorTime).TotalMilliseconds; // total miliseconds of using any processor
+                    var cpuUsageLast = timeUsedMiliseconds / (elapsedMiliseconds * countLogicalProcessors); // normalize it to per time unit per one logical processor
 
-                var timeUsedMiliseconds = (process.TotalProcessorTime - lastTotalProcessorTime).TotalMilliseconds; // total miliseconds of using any processor
-                var cpuUsageLast = timeUsedMiliseconds / (elapsedMiliseconds * countLogicalProcessors); // normalize it to per time unit per one logical processor
+                    cpuUsageHistory.Enqueue(cpuUsageLast);
+                    memoryUsageBytesHistory.Enqueue(process.WorkingSet64);
 
-                cpuUsageHistory.Enqueue(cpuUsageLast);
-                memoryUsageBytesHistory.Enqueue(process.WorkingSet64);
+                    while (cpuUsageHistory.Count > maxHistoryLen) cpuUsageHistory.Dequeue();
+                    while (memoryUsageBytesHistory.Count > maxHistoryLen) memoryUsageBytesHistory.Dequeue();
 
-                while (cpuUsageHistory.Count > maxHistoryLen) cpuUsageHistory.Dequeue();
-                while (memoryUsageBytesHistory.Count > maxHistoryLen) memoryUsageBytesHistory.Dequeue();
+                    cpuUsage = cpuUsageHistory.Average();
+                    memoryUsageBytes = (long)Math.Round(memoryUsageBytesHistory.Average());
 
-                cpuUsage = cpuUsageHistory.Average();
-                memoryUsageBytes = (long)Math.Round(memoryUsageBytesHistory.Average());
+                    lastTotalProcessorTime = process.TotalProcessorTime;
+                }
 
-                lastTotalProcessorTime = process.TotalProcessorTime;
             }
         }
 
