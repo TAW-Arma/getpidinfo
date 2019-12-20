@@ -229,6 +229,17 @@ namespace getpidinfo
                 httpListener.Prefixes.Add("http://*:" + serverPort + "/");
                 httpListener.Start();
             }
+            catch (System.Net.HttpListenerException e)
+            {
+                if (e.ErrorCode == 5)
+                {
+                    Console.WriteLine("Failed to start server listener on: " + serverPort + " reason: This program requires administrator privileges. Please run as administrator.");
+                } else
+                {
+                    Console.WriteLine("Failed to start server listener on: " + serverPort + " reason: " + e);
+                }
+                return;
+            }
             catch (Exception e)
             {
                 Console.WriteLine("Failed to start server listener on: " + serverPort + " reason: " + e);
