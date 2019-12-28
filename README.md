@@ -9,7 +9,9 @@ Once it's running you can request info of any number of process IDs.
 
 Uses [sharppcap](https://github.com/chmorgan/sharppcap)
 
-Requires installed [windows npcap driver](https://nmap.org/npcap/)
+Requires [windows npcap driver](https://nmap.org/npcap/) installed (in WinPcap API-compatible Mode).
+
+Listens to port 2020
 
 # Example
 
