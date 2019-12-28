@@ -90,7 +90,7 @@ namespace getpidinfo
             {
                 try
                 {
-                    // do nothing if process has exited
+                    // check if running
                     if (process != null && process.Id != 0)
                     {
                         var timeUsedMiliseconds = (process.TotalProcessorTime - lastTotalProcessorTime).TotalMilliseconds; // total miliseconds of using any processor
@@ -106,6 +106,12 @@ namespace getpidinfo
                         memoryUsageBytes = (long)Math.Round(memoryUsageBytesHistory.Average());
 
                         lastTotalProcessorTime = process.TotalProcessorTime;
+                    } else
+                    {
+                        // return -1 if not running
+                        cpuUsage = -1;
+                        memoryUsageBytes = -1;
+                        lastTotalProcessorTime = new TimeSpan(0);
                     }
                 } catch (System.ComponentModel.Win32Exception)
                 {
@@ -148,7 +154,7 @@ namespace getpidinfo
                 }
                 else
                 {
-                    //Console.WriteLine("Process with pid " + pid + " is not running");
+                    // process is not running
                 }
             }
 
@@ -159,6 +165,24 @@ namespace getpidinfo
             }
 
 
+        }
+
+        public static bool IsRunning(int pid)
+        {
+            try
+            {
+                var proc = Process.GetProcessById(pid);
+                if (proc != null && proc.Id != 0)
+                {
+                    return true;
+                } else
+                {
+                    return false;
+                }
+            } catch
+            {
+                return false;
+            }
         }
 
     }

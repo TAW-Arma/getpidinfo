@@ -308,19 +308,29 @@ namespace getpidinfo
                 var part = parts[i];
                 var pidPort = part.Split('=');
                 if (!int.TryParse(pidPort[0], out pid)) return false;
+
                 if (pid == 0)
                 {
-                    cpu = 0;
-                    memory = 0;
-                    network = 0;
+                    // Invalid request
+                    cpu = -1;
+                    memory = -1;
+                    network = -1;
                 }
-                else
+                else if (!ProcessInfoManager.IsRunning(pid))
                 {
+                    // Not running
+                    cpu = -1;
+                    memory = -1;
+                    network = -1;
+                } else
+                {
+                    // process is running
                     var cpuMemory = processInfoManager.GetCpuMemoryUsageForPid(pid);
                     cpu = (int)Math.Round(cpuMemory.cpuUsage * 100.0);
                     memory = cpuMemory.memoryUsageBytes;
                     network = portStatisticsManager.GetBytesSentLastSecondForPid(pid);
                 }
+
                 o.Write("\t\"{0}\":{{ \"pid\":{0}, \"cpu\":{1}, \"memory\":{2}, \"network\":{3} }}", 
                     pid,
                     cpu,
