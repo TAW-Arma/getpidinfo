@@ -1,37 +1,26 @@
 # getpidinfo
 
-Windows JSON service that returns CPU, memory and network usage of requested process IDs.
-
-It's being internally used by our control panel backend to gather server status information.
-Must be ran as administrator.
+C# library that returns CPU, memory and network usage of requested process IDs.
 
 Once it's running you can request info of any number of process IDs.
 
 Uses [sharppcap](https://github.com/chmorgan/sharppcap)
 
-Requires [windows npcap driver](https://nmap.org/npcap/) installed (in WinPcap API-compatible Mode).
-
-Listens to port 2020
+Requires [windows npcap driver](https://nmap.org/npcap/) installed.
 
 # Example
-
-Request
-```http
-http://localhost:2020/?10724,4,13768,678
-```
-Where after ? is a list of PID numbers glued with comma.
-
 Response
-```json
-{
-	"10724":{ "pid":10724, "cpu":5, "memory":58966016, "network":0 },
-	"4":{ "pid":4, "cpu":1, "memory":1839005696, "network":0 },
-	"13768":{ "pid":13768, "cpu":1, "memory":370495488, "network":0 },
-	"678":{ "pid":678, "cpu":0, "memory":0, "network":0 }
-}
+```c#
+using getpidinfo;
+...
+PidConnector pidInfo = new PidConnector();
+PidInfoData data = pidInfo.QueryProcess(pid);
 ```
-
+# PidInfoData
 If pid is not running or is not accessible it will return 0 for all stats.
-CPU usage is in percents.
+
+CPU usage is in percent.
+
 Memory usage is in bytes.
+
 Network usage is bytes sent per second and is averaged over secondsToKeepNetworkSamples second.
