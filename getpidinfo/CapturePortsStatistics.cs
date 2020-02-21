@@ -1,31 +1,30 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using SharpPcap;
+//using SharpPcap.WinPcap;
+using SharpPcap.Npcap;
+using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
-using SharpPcap;
-using SharpPcap.WinPcap;
-using PacketDotNet;
+using System.Diagnostics;
 
 namespace getpidinfo
 {
     public class CapturePortsStatistics
     {
+        private static int nextGlobalId = 0;
 
-        static int nextGlobalId = 0;
-
-        struct Data
+        private struct Data
         {
             public long bytes;
             public DateTime dateTime;
         }
-        ConcurrentQueue<Data> receviedBytes = new ConcurrentQueue<Data>();
 
-        WinPcapDeviceList devices;
-        List<ushort> listeningToPorts = new List<ushort>();
-        bool hasStarted = false;
-        int myId;
+        private readonly ConcurrentQueue<Data> receviedBytes = new ConcurrentQueue<Data>();
+        private NpcapDeviceList devices;
+        private readonly List<ushort> listeningToPorts = new List<ushort>();
+        private bool hasStarted = false;
+        private readonly int myId;
 
         public CapturePortsStatistics()
         {
@@ -95,9 +94,9 @@ namespace getpidinfo
             }
         }
 
-        void OnPcapStatistics(object sender, StatisticsModeEventArgs e)
+        private void OnPcapStatistics(object sender, StatisticsModeEventArgs e)
         {
-            // Console.WriteLine(port + " " + e.Statistics.RecievedBytes);
+            // Debug.WriteLine(port + " " + e.Statistics.RecievedBytes);
             receviedBytes.Enqueue(
                 new Data()
                 {
@@ -107,12 +106,12 @@ namespace getpidinfo
             );
         }
 
-        string GetStringPorts()
+        private string GetStringPorts()
         {
             return string.Join(",", listeningToPorts.ToArray());
         }
 
-        string GetPortsFilter()
+        private string GetPortsFilter()
         {
             var sb = new StringBuilder();
             for (int i = 0; i < listeningToPorts.Count; i++)
@@ -123,36 +122,44 @@ namespace getpidinfo
             return sb.ToString();
         }
 
-
-        void Restart()
+        private void Restart()
         {
             var ports = GetStringPorts();
-            Console.WriteLine("Restarting listener id:" + myId + " on ports:" + ports + " ...");
-            foreach (WinPcapDevice dev in devices)
+            Debug.WriteLine("Restarting listener id:" + myId + " on ports:" + ports + " ...");
+            foreach (NpcapDevice dev in devices)
             {
                 dev.StopCapture();
                 dev.Filter = GetPortsFilter();
                 dev.StartCapture();
             }
-            Console.WriteLine("Restarted listener id:" + myId + " on ports:" + ports);
+            Debug.WriteLine("Restarted listener id:" + myId + " on ports:" + ports);
         }
 
-        void Start()
+        private void Start()
         {
             if (listeningToPorts.Count <= 0) return;
-            if (devices == null) devices = WinPcapDeviceList.New();
+            try
+            {
+                if (devices == null) devices = NpcapDeviceList.New();
+
+            }
+            catch (DllNotFoundException)
+            {
+
+                throw new Exception("WinPCap is NOT installed! Please install it. Please. Do it.");
+            }
 
             var ports = GetStringPorts();
-            Console.WriteLine("Starting listener id:" + myId + " on ports:" + ports + " ...");
-            foreach (WinPcapDevice dev in devices)
+            Debug.WriteLine("Starting listener id:" + myId + " on ports:" + ports + " ...");
+            foreach (NpcapDevice dev in devices)
             {
-                dev.Open(DeviceMode.Normal);
+                dev.Open(DeviceMode.Normal, 1000);
                 dev.Mode = CaptureMode.Statistics;
                 dev.Filter = GetPortsFilter();
                 dev.OnPcapStatistics += OnPcapStatistics;
                 dev.StartCapture();
             }
-            Console.WriteLine("Started listener id:" + myId + " on ports:" + ports);
+            Debug.WriteLine("Started listener id:" + myId + " on ports:" + ports);
             hasStarted = true;
         }
 
@@ -161,14 +168,14 @@ namespace getpidinfo
             if (devices == null) return;
 
             var ports = GetStringPorts();
-            Console.WriteLine("Stopping listener id:" + myId + " on ports:" + ports + " ...");
-            foreach (WinPcapDevice dev in devices)
+            Debug.WriteLine("Stopping listener id:" + myId + " on ports:" + ports + " ...");
+            foreach (NpcapDevice dev in devices)
             {
                 dev.OnPcapStatistics -= OnPcapStatistics;
                 dev.StopCapture();
                 dev.Close();
             }
-            Console.WriteLine("Stopped listener id:" + myId + " on ports:" + ports);
+            Debug.WriteLine("Stopped listener id:" + myId + " on ports:" + ports);
             hasStarted = false;
         }
 

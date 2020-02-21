@@ -1,10 +1,6 @@
 ﻿// from http://www.pinvoke.net/default.aspx/iphlpapi.getextendedtcptable
 
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Runtime.InteropServices;
 
 namespace getpidinfo
@@ -12,22 +8,20 @@ namespace getpidinfo
     public static partial class GetAllConnections
     {
 
-        [DllImport("iphlpapi.dll", SetLastError = true)]
-        static extern uint GetExtendedTcpTable(IntPtr pTcpTable, ref int dwOutBufLen, bool sort, int ipVersion, TCP_TABLE_CLASS tblClass, uint reserved = 0);
 
 
         [StructLayout(LayoutKind.Sequential)]
         public struct MIB_TCPROW_OWNER_PID
         {
             // DWORD is System.UInt32 in C#
-            System.UInt32 state;
-            System.UInt32 localAddr;
+            private readonly uint state;
+            private readonly uint localAddr;
             [MarshalAs(UnmanagedType.ByValArray, SizeConst = 4)]
-            byte[] localPort;
-            System.UInt32 remoteAddr;
+            private readonly byte[] localPort;
+            private readonly uint remoteAddr;
             [MarshalAs(UnmanagedType.ByValArray, SizeConst = 4)]
-            byte[] remotePort;
-            System.UInt32 owningPid;
+            private readonly byte[] remotePort;
+            private readonly uint owningPid;
 
             public uint PID
             {
@@ -77,10 +71,10 @@ namespace getpidinfo
         public struct MIB_TCPTABLE_OWNER_PID
         {
             public uint dwNumEntries;
-            MIB_TCPROW_OWNER_PID table;
+            private readonly MIB_TCPROW_OWNER_PID table;
         }
 
-        enum TCP_TABLE_CLASS
+        public enum TCP_TABLE_CLASS
         {
             TCP_TABLE_BASIC_LISTENER,
             TCP_TABLE_BASIC_CONNECTIONS,
@@ -93,10 +87,8 @@ namespace getpidinfo
             TCP_TABLE_OWNER_MODULE_ALL
         }
 
-
-
-        static DateTime getAllTcpConnections_cached_lastTime;
-        static MIB_TCPROW_OWNER_PID[] getAllTcpConnections_cached;
+        private static DateTime getAllTcpConnections_cached_lastTime;
+        private static MIB_TCPROW_OWNER_PID[] getAllTcpConnections_cached;
         //public TcpRow[] GetAllTcpConnections()
         public static MIB_TCPROW_OWNER_PID[] GetAllTcpConnections()
         {
@@ -109,12 +101,12 @@ namespace getpidinfo
                 int buffSize = 0;
 
                 // how much memory do we need?
-                uint ret = GetExtendedTcpTable(IntPtr.Zero, ref buffSize, true, AF_INET, TCP_TABLE_CLASS.TCP_TABLE_OWNER_PID_ALL);
+                uint ret = NativeMethods.GetExtendedTcpTable(IntPtr.Zero, ref buffSize, true, AF_INET, TCP_TABLE_CLASS.TCP_TABLE_OWNER_PID_ALL);
                 IntPtr buffTable = Marshal.AllocHGlobal(buffSize);
 
                 try
                 {
-                    ret = GetExtendedTcpTable(buffTable, ref buffSize, true, AF_INET, TCP_TABLE_CLASS.TCP_TABLE_OWNER_PID_ALL);
+                    ret = NativeMethods.GetExtendedTcpTable(buffTable, ref buffSize, true, AF_INET, TCP_TABLE_CLASS.TCP_TABLE_OWNER_PID_ALL);
                     if (ret != 0)
                     {
                         return new MIB_TCPROW_OWNER_PID[0];
@@ -161,5 +153,14 @@ namespace getpidinfo
         // {
         //   Console.WriteLine("{0}:{1}\t{2}:{3}\t{4}\t{5}",mib.LocalAddress,mib.LocalPort,mib.RemoteAddress,mib.RemotePort,mib.state,mib.owningPid);
         // }
+    }
+
+    internal static class NativeMethods
+    {
+        [DllImport("iphlpapi.dll", SetLastError = true)]
+        public static extern uint GetExtendedUdpTable(IntPtr pTcpTable, ref int dwOutBufLen, bool sort, int ipVersion, GetAllConnections.UDP_TABLE_CLASS tblClass, uint reserved = 0);
+        [DllImport("iphlpapi.dll", SetLastError = true)]
+        public static extern uint GetExtendedTcpTable(IntPtr pTcpTable, ref int dwOutBufLen, bool sort, int ipVersion, GetAllConnections.TCP_TABLE_CLASS tblClass, uint reserved = 0);
+
     }
 }
