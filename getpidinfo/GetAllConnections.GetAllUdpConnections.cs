@@ -1,29 +1,20 @@
 ﻿// from http://www.pinvoke.net/default.aspx/iphlpapi.getextendedtcptable
 
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Runtime.InteropServices;
 
 namespace getpidinfo
 {
     public static partial class GetAllConnections
     {
-
-        [DllImport("iphlpapi.dll", SetLastError = true)]
-        static extern uint GetExtendedUdpTable(IntPtr pTcpTable, ref int dwOutBufLen, bool sort, int ipVersion, UDP_TABLE_CLASS tblClass, uint reserved = 0);
-
-
         [StructLayout(LayoutKind.Sequential)]
         public struct MIB_UDPROW_OWNER_PID
         {
             // DWORD is System.UInt32 in C#
-            System.UInt32 localAddr;
+            private readonly uint localAddr;
             [MarshalAs(UnmanagedType.ByValArray, SizeConst = 4)]
-            byte[] localPort;
-            System.UInt32 owningPid;
+            private readonly byte[] localPort;
+            private readonly uint owningPid;
 
             public uint PID
             {
@@ -49,25 +40,25 @@ namespace getpidinfo
                     new byte[2] { localPort[1], localPort[0] }, 0);
                 }
             }
-      
+
         }
 
         [StructLayout(LayoutKind.Sequential)]
         public struct MIB_UDPTABLE_OWNER_PID
         {
             public uint dwNumEntries;
-            MIB_UDPROW_OWNER_PID table;
+            private readonly MIB_UDPROW_OWNER_PID table;
         }
 
-        enum UDP_TABLE_CLASS
+        public enum UDP_TABLE_CLASS
         {
             UDP_TABLE_BASIC,
             UDP_TABLE_OWNER_PID,
             UDP_TABLE_OWNER_MODULE
         }
 
-        static DateTime getAllUdpConnections_cached_lastTime;
-        static MIB_UDPROW_OWNER_PID[] getAllUdpConnections_cached;
+        private static DateTime getAllUdpConnections_cached_lastTime;
+        private static MIB_UDPROW_OWNER_PID[] getAllUdpConnections_cached;
         //public TcpRow[] GetAllTcpConnections()        
         public static MIB_UDPROW_OWNER_PID[] GetAllUdpConnections()
         {
@@ -79,12 +70,12 @@ namespace getpidinfo
                 int buffSize = 0;
 
                 // how much memory do we need?
-                uint ret = GetExtendedUdpTable(IntPtr.Zero, ref buffSize, true, AF_INET, UDP_TABLE_CLASS.UDP_TABLE_OWNER_PID);
+                uint ret = NativeMethods.GetExtendedUdpTable(IntPtr.Zero, ref buffSize, true, AF_INET, UDP_TABLE_CLASS.UDP_TABLE_OWNER_PID);
                 IntPtr buffTable = Marshal.AllocHGlobal(buffSize);
 
                 try
                 {
-                    ret = GetExtendedUdpTable(buffTable, ref buffSize, true, AF_INET, UDP_TABLE_CLASS.UDP_TABLE_OWNER_PID);
+                    ret = NativeMethods.GetExtendedUdpTable(buffTable, ref buffSize, true, AF_INET, UDP_TABLE_CLASS.UDP_TABLE_OWNER_PID);
                     if (ret != 0)
                     {
                         return new MIB_UDPROW_OWNER_PID[0];

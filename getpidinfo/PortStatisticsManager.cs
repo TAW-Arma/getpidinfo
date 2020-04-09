@@ -1,25 +1,21 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Collections.Concurrent;
-using System.Linq;
-using System.Text;
-using System.Threading;
+using System.Collections.Generic;
+using System.Diagnostics;
 
 namespace getpidinfo
 {
     public class PortStatisticsManager
     {
-
-        class PidData
+        private class PidData
         {
             public long lastBytesSentPerSecond;
             public CapturePortsStatistics statistics;
         }
 
-        TimeSpan timespanToKeepNetworkSamples;
-        TimeSpan timespanToClosePIDPortsWithNoRequests;
-        TimeSpan timespanToUpdatePidToPortsTable;
-
+        private TimeSpan timespanToKeepNetworkSamples;
+        private TimeSpan timespanToClosePIDPortsWithNoRequests;
+        private TimeSpan timespanToUpdatePidToPortsTable;
         public PortStatisticsManager(int secondsToKeepNetworkSamples, int secondsToClosePIDPortsWithNoRequests, int secondsToUpdatePidToPortsTable)
         {
             timespanToKeepNetworkSamples = new TimeSpan(0, 0, secondsToKeepNetworkSamples);
@@ -57,7 +53,7 @@ namespace getpidinfo
                         var process = TimeCachedGetProcessByPid.Singleton.GetProcessForPid(pid);
                         if (process != null) // be sure the process is running
                         {
-                            Console.WriteLine("Creating ports listener for pid:" + pid);
+                            Debug.WriteLine("Creating ports listener for pid:" + pid);
                             var statistics = GetCapturePortsStatistics();
                             statistics.CaptureThesePorts(ports);
 
@@ -79,7 +75,7 @@ namespace getpidinfo
 
                     if (data != null)
                     {
-                        Console.WriteLine("Destroying ports listener for pid:" + pid);
+                        Debug.WriteLine("Destroying ports listener for pid:" + pid);
 
                         StopCapturePortsStatistics(data.statistics);
                         pidToData.TryRemove(pid, out data);
@@ -94,14 +90,15 @@ namespace getpidinfo
 
         }
 
+        private readonly Queue<CapturePortsStatistics> dormantCapturePortsStatistics = new Queue<CapturePortsStatistics>();
 
-        Queue<CapturePortsStatistics> dormantCapturePortsStatistics = new Queue<CapturePortsStatistics>();
-        CapturePortsStatistics GetCapturePortsStatistics()
+        private CapturePortsStatistics GetCapturePortsStatistics()
         {
             if (dormantCapturePortsStatistics.Count > 0) return dormantCapturePortsStatistics.Dequeue();
             return new CapturePortsStatistics();
         }
-        void StopCapturePortsStatistics(CapturePortsStatistics stats)
+
+        private void StopCapturePortsStatistics(CapturePortsStatistics stats)
         {
             stats.Stop();
             dormantCapturePortsStatistics.Enqueue(stats);
@@ -121,9 +118,8 @@ namespace getpidinfo
             pidToData.Clear();
         }
 
-
-        ConcurrentDictionary<int, PidData> pidToData = new ConcurrentDictionary<int, PidData>();
-        ConcurrentDictionary<int, DateTime> pidRequestToLastTime = new ConcurrentDictionary<int, DateTime>();
+        private readonly ConcurrentDictionary<int, PidData> pidToData = new ConcurrentDictionary<int, PidData>();
+        private readonly ConcurrentDictionary<int, DateTime> pidRequestToLastTime = new ConcurrentDictionary<int, DateTime>();
 
         public long GetBytesSentLastSecondForPid(int pid)
         {
@@ -139,11 +135,10 @@ namespace getpidinfo
             }
         }
 
+        private DateTime PIDtoPorts_lastTimeUpdated = DateTime.Now;
+        private readonly Dictionary<int, List<ushort>> pidToPorts = new Dictionary<int, List<ushort>>();
 
-
-        DateTime PIDtoPorts_lastTimeUpdated = DateTime.Now;
-        Dictionary<int, List<ushort>> pidToPorts = new Dictionary<int, List<ushort>>();
-        void TryUpdatePIDToPorts()
+        private void TryUpdatePIDToPorts()
         {
             if (PIDtoPorts_lastTimeUpdated + timespanToUpdatePidToPortsTable < DateTime.Now)
             {

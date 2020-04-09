@@ -1,25 +1,17 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Collections.Concurrent;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Diagnostics;
-using System.Management;
-using System.Windows.Forms;
-using System.Threading;
-using System.Net;
 
 namespace getpidinfo
 {
     public class TimeCachedGetProcessByPid
     {
-        static TimeCachedGetProcessByPid singleton;
+        private static TimeCachedGetProcessByPid singleton;
         public static TimeCachedGetProcessByPid Singleton
         {
             get
             {
-                if(singleton == null)
+                if (singleton == null)
                 {
                     singleton = new TimeCachedGetProcessByPid(new TimeSpan(0, 0, 2));
                 }
@@ -27,14 +19,14 @@ namespace getpidinfo
             }
         }
 
-        struct Data
+        private struct Data
         {
             public Process process;
         }
 
-        Dictionary<int, DateTime> pidToLastTime = new Dictionary<int, DateTime>();
-        Dictionary<int, Data> pidToLastProcessInstance = new Dictionary<int, Data>();
-        TimeSpan timespanToRefrash;
+        private readonly Dictionary<int, DateTime> pidToLastTime = new Dictionary<int, DateTime>();
+        private readonly Dictionary<int, Data> pidToLastProcessInstance = new Dictionary<int, Data>();
+        private TimeSpan timespanToRefrash;
 
         public TimeCachedGetProcessByPid(TimeSpan timespanToRefrash)
         {

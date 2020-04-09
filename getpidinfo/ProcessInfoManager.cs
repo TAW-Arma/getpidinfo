@@ -1,38 +1,30 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Collections.Concurrent;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using System.Management;
-using System.Windows.Forms;
-using System.Threading;
-using SharpPcap;
-using SharpPcap.WinPcap;
-using PacketDotNet;
-using System.Net;
 
 namespace getpidinfo
 {
-    class ProcessInfoManager
+    public class ProcessInfoManager
     {
-
-
-        static int countLogicalProcessors = 0;
-        int numberOfSamplesToAverage;
-        int secondsToKeepWatchingProcessWithNoRequests;
+        private static int countLogicalProcessors = 0;
+        private readonly int numberOfSamplesToAverage;
+        private readonly int secondsToKeepWatchingProcessWithNoRequests;
 
         public ProcessInfoManager(int numberOfSamplesToAverage, int secondsToKeepWatchingProcessWithNoRequests)
         {
             this.numberOfSamplesToAverage = numberOfSamplesToAverage;
             this.secondsToKeepWatchingProcessWithNoRequests = secondsToKeepWatchingProcessWithNoRequests;
 
-            var searcher = new ManagementObjectSearcher("select MaxClockSpeed,NumberOfLogicalProcessors from Win32_Processor");
-            foreach (var item in searcher.Get())
+            using (var searcher = new ManagementObjectSearcher("select MaxClockSpeed,NumberOfLogicalProcessors from Win32_Processor"))
             {
-                var processors = int.Parse(item["NumberOfLogicalProcessors"].ToString());
-                countLogicalProcessors += processors;
+                foreach (var item in searcher.Get())
+                {
+                    var processors = int.Parse(item["NumberOfLogicalProcessors"].ToString());
+                    countLogicalProcessors += processors;
+                }
             }
 
         }
@@ -43,13 +35,13 @@ namespace getpidinfo
             public long memoryUsageBytes;
         }
 
-        ConcurrentDictionary<int, DateTime> pidRequestToLastTime = new ConcurrentDictionary<int, DateTime>();
-        ConcurrentQueue<int> addprocessToWatch = new ConcurrentQueue<int>();
+        private readonly ConcurrentDictionary<int, DateTime> pidRequestToLastTime = new ConcurrentDictionary<int, DateTime>();
+        private readonly ConcurrentQueue<int> addprocessToWatch = new ConcurrentQueue<int>();
         public CpuMemoryUsageData GetCpuMemoryUsageForPid(int pid)
         {
             pidRequestToLastTime[pid] = DateTime.Now;
             ProcessData pd;
-            if(!pidToProcessData.TryGetValue(pid, out pd))
+            if (!pidToProcessData.TryGetValue(pid, out pd))
             {
                 addprocessToWatch.Enqueue(pid);
                 return new CpuMemoryUsageData() { cpuUsage = 0, memoryUsageBytes = 0 };
@@ -57,24 +49,22 @@ namespace getpidinfo
             return new CpuMemoryUsageData() { cpuUsage = pd.cpuUsage, memoryUsageBytes = pd.memoryUsageBytes };
         }
 
-        Dictionary<int, ProcessData> pidToProcessData = new Dictionary<int, ProcessData>();
+        private readonly Dictionary<int, ProcessData> pidToProcessData = new Dictionary<int, ProcessData>();
 
-
-
-        class ProcessData
+        private class ProcessData
         {
             public double cpuUsage { get; private set; }
             public long memoryUsageBytes { get; private set; }
 
-            Queue<double> cpuUsageHistory = new Queue<double>();
-            Queue<long> memoryUsageBytesHistory = new Queue<long>();
-
-            TimeSpan lastTotalProcessorTime;
-            Process process;
+            private readonly Queue<double> cpuUsageHistory = new Queue<double>();
+            private readonly Queue<long> memoryUsageBytesHistory = new Queue<long>();
+            private TimeSpan lastTotalProcessorTime;
+            private readonly Process process;
             public static ProcessData CreateProcessDataForPid(int pid)
             {
                 var process = TimeCachedGetProcessByPid.Singleton.GetProcessForPid(pid);
                 if (process == null) return null;
+                if (process.HasExited) return null;
                 else return new ProcessData(process);
             }
             private ProcessData(Process process)
@@ -87,37 +77,55 @@ namespace getpidinfo
             }
             public void Tick(double elapsedMiliseconds, int maxHistoryLen)
             {
+                try
+                {
+                    // check if running
+                    if (process != null && process.Id != 0 && !process.HasExited)
+                    {
+                        var timeUsedMiliseconds = (process.TotalProcessorTime - lastTotalProcessorTime).TotalMilliseconds; // total miliseconds of using any processor
+                        var cpuUsageLast = timeUsedMiliseconds / (elapsedMiliseconds * countLogicalProcessors); // normalize it to per time unit per one logical processor
 
-                var timeUsedMiliseconds = (process.TotalProcessorTime - lastTotalProcessorTime).TotalMilliseconds; // total miliseconds of using any processor
-                var cpuUsageLast = timeUsedMiliseconds / (elapsedMiliseconds * countLogicalProcessors); // normalize it to per time unit per one logical processor
+                        cpuUsageHistory.Enqueue(cpuUsageLast);
+                        memoryUsageBytesHistory.Enqueue(process.WorkingSet64);
 
-                cpuUsageHistory.Enqueue(cpuUsageLast);
-                memoryUsageBytesHistory.Enqueue(process.WorkingSet64);
+                        while (cpuUsageHistory.Count > maxHistoryLen) cpuUsageHistory.Dequeue();
+                        while (memoryUsageBytesHistory.Count > maxHistoryLen) memoryUsageBytesHistory.Dequeue();
 
-                while (cpuUsageHistory.Count > maxHistoryLen) cpuUsageHistory.Dequeue();
-                while (memoryUsageBytesHistory.Count > maxHistoryLen) memoryUsageBytesHistory.Dequeue();
+                        cpuUsage = cpuUsageHistory.Average();
+                        memoryUsageBytes = (long)Math.Round(memoryUsageBytesHistory.Average());
 
-                cpuUsage = cpuUsageHistory.Average();
-                memoryUsageBytes = (long)Math.Round(memoryUsageBytesHistory.Average());
-
-                lastTotalProcessorTime = process.TotalProcessorTime;
+                        lastTotalProcessorTime = process.TotalProcessorTime;
+                    }
+                    else
+                    {
+                        cpuUsage = 0;
+                        memoryUsageBytes = 0;
+                        lastTotalProcessorTime = new TimeSpan(0);
+                    }
+                }
+                catch (System.ComponentModel.Win32Exception)
+                {
+                    Debug.WriteLine("Error: Could not read " + process.Id);
+                    cpuUsage = 0;
+                    memoryUsageBytes = 0;
+                    lastTotalProcessorTime = new TimeSpan(0);
+                }
             }
         }
 
-
-
-        DateTime lastTickWasAt;
+        private DateTime lastTickWasAt;
         public void Tick()
         {
             var elapsedMiliseconds = (DateTime.Now - lastTickWasAt).TotalMilliseconds;
             lastTickWasAt = DateTime.Now;
 
-
+            // remove dead processes
             var timeUnderWhichRemovePidRequests = DateTime.Now - new TimeSpan(0, 0, secondsToKeepWatchingProcessWithNoRequests);
             foreach (var kvp in pidRequestToLastTime)
             {
-                if(kvp.Value < timeUnderWhichRemovePidRequests)
+                if (kvp.Value < timeUnderWhichRemovePidRequests)
                 {
+                    // Process has no requests
                     pidToProcessData.Remove(kvp.Key);
                 }
             }
@@ -127,18 +135,20 @@ namespace getpidinfo
             while (addprocessToWatch.Count > 0)
             {
                 int pid;
-                if (!addprocessToWatch.TryDequeue(out pid)) break;
+                if (!addprocessToWatch.TryDequeue(out pid)) break; // no processes to add to watch
                 var pd = ProcessData.CreateProcessDataForPid(pid);
-                if(pd != null)
+                if (pd != null)
                 {
+                    // process is alive!
                     pidToProcessData[pid] = pd;
                 }
                 else
                 {
-                    //Console.WriteLine("Process with pid " + pid + " is not running");
+                    // process is not running. Do not process
                 }
             }
 
+            // process data for processes
             foreach (var kvp in pidToProcessData)
             {
                 var pd = kvp.Value;
@@ -146,6 +156,26 @@ namespace getpidinfo
             }
 
 
+        }
+
+        public static bool IsRunning(int pid)
+        {
+            try
+            {
+                var proc = Process.GetProcessById(pid);
+                if (proc != null && proc.Id != 0)
+                {
+                    return true;
+                }
+                else
+                {
+                    return false;
+                }
+            }
+            catch
+            {
+                return false;
+            }
         }
 
     }
